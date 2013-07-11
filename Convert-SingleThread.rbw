@@ -8,6 +8,35 @@ SourceDirFlac = "./S-FLAC/"
 ToolsDir = "./Tools/"
 DestDir = "./Converted/"
 
+def flacTags(path)
+  tags = {}
+  system(ToolsDir + "metaflac --export-tags-to=Tags.tmp " + "\"" + path + "\"")
+  ret = IO.popen(ToolsDir + "metaflac --show-tag=artist --show-tag=title --show-tag=album --show-tag=tracknumber " + "\"" + path + "\"", "r")
+  ret.each_line do |tag|
+    case tag
+    when /TITLE=(.*)/i; tags['TrackTitle'] = $1
+    when /ARTIST=(.*)/i; tags['TrackArtist'] = $1
+    when /ALBUM=(.*)/i; tags['TrackAlbum'] = $1
+    when /TRACKNUMBER=(.*)/i; tags['TrackNumber'] = $1
+    end
+  end
+  return tags
+end
+
+def oggTags(path)
+  tags = {}
+  ret = IO.popen(ToolsDir + "ogginfo " + "\"" + path + "\"", "r")
+  ret.each_line do |tag|
+    case tag
+    when /TITLE=(.*)/i; tags['TrackTitle'] = $1
+    when /ARTIST=(.*)/i; tags['TrackArtist'] = $1
+    when /ALBUM=(.*)/i; tags['TrackAlbum'] = $1
+    when /TRACKNUMBER=(.*)/i; tags['TrackNumber'] = $1
+    end
+  end
+  return tags
+end
+
 Find.find(SourceDirFlac) do |path|
   if !FileTest.directory?(path)
     if path =~ /\.flac$/i
@@ -20,25 +49,13 @@ Find.find(SourceDirFlac) do |path|
         makedirs(mp3dir)
         print (ToolsDir + "flac -d -f " + "\"" + path + "\"\n")
         system (ToolsDir + "flac -d -f " + "\"" + path + "\"")
-        $TrackTitle = ""
-        $TrackArtist = ""
-        $TrackAlbum = ""
-        $TrackNumber = ""
-        system(ToolsDir + "metaflac --export-tags-to=Tags.tmp " + "\"" + path + "\"")
-        $Tags =  IO.popen(ToolsDir + "metaflac --show-tag=artist --show-tag=title --show-tag=album --show-tag=tracknumber " + "\"" + path + "\"", "r")
-        $Tags.each_line do |tag|
-          case tag
-            when /TITLE=(.*)/i; $TrackTitle = $1
-            when /ARTIST=(.*)/i; $TrackArtist = $1
-            when /ALBUM=(.*)/i; $TrackAlbum = $1
-            when /TRACKNUMBER=(.*)/i; $TrackNumber = $1
-          end
-        end
+        $Tags = flacTags(path)
 
         print path
 
-                print (ToolsDir + "lame --tt \"" + $TrackTitle + "\" --ta \"" + $TrackArtist + "\" --tl \"" + $TrackAlbum + "\" --tn " + $TrackNumber + " " + "\"" + wavpath + "\" \"" + mp3path + ".tmp\"\n")
-        system (ToolsDir + "lame --tt \"" + $TrackTitle + "\" --ta \"" + $TrackArtist + "\" --tl \"" + $TrackAlbum + "\" --tn \"" + $TrackNumber + "\" " + "\"" + wavpath + "\" \"" + mp3path + ".tmp\"")
+        mExec = ToolsDir + "lame --tt \"" + $Tags['TrackTitle'] + "\" --ta \"" + $Tags['TrackArtist'] + "\" --tl \"" + $Tags['TrackAlbum'] + "\" --tn \"" + $Tags['TrackNumber'] + "\" " + "\"" + wavpath + "\" \"" + mp3path + ".tmp\""
+        print mExec + "\n"
+        system mExec
         File.delete wavpath
         File.rename(mp3path+".tmp", mp3path)
         puts(wavpath)
@@ -60,20 +77,10 @@ Find.find(SourceDirOgg) do |path|
         mp3dir, mp3file = File.split(mp3path)
         makedirs(mp3dir)
         system (ToolsDir + "oggdec " + "\"" + path + "\"")
-        $TrackTitle = ""
-        $TrackArtist = ""
-        $TrackAlbum = ""
-        $TrackNumber = ""
-        $Tags =  IO.popen(ToolsDir + "ogginfo " + "\"" + path + "\"", "r")
-        $Tags.each_line do |tag|
-          case tag
-            when /TITLE=(.*)/i; $TrackTitle = $1
-            when /ARTIST=(.*)/i; $TrackArtist = $1
-            when /ALBUM=(.*)/i; $TrackAlbum = $1
-            when /TRACKNUMBER=(.*)/i; $TrackNumber = $1
-          end
-        end
-        system (ToolsDir + "lame --tt \"" + $TrackTitle + "\" --ta \"" + $TrackArtist + "\" --tl \"" + $TrackAlbum + "\" --tn \" " + $TrackNumber + "\" " + "\"" + wavpath + "\" \"" + mp3path + ".tmp\"")
+        $Tags = oggTags(path)
+        mExecToolsDir + "lame --tt \"" + $Tags['TrackTitle'] + "\" --ta \"" + $Tags['TrackArtist'] + "\" --tl \"" + $Tags['TrackAlbum'] + "\" --tn \" " + $Tags['TrackNumber'] + "\" " + "\"" + wavpath + "\" \"" + mp3path + ".tmp\""
+        print mExec + "\n"
+        system mExec
         File.delete wavpath
         File.rename(mp3path+".tmp", mp3path)
         puts(wavpath)
